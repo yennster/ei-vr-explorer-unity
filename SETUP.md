@@ -3,6 +3,11 @@
 End-to-end setup on a Mac, from a clean machine to an APK running on a Quest 2.
 Total time: ~30 minutes, mostly waiting on Unity downloads.
 
+> **On Windows?** See **[AIRLINK.md](AIRLINK.md)** for the Air Link / Quest
+> Link workflow (in-editor Play streamed to the headset — not available on
+> macOS). The Unity install + scene-building parts of this file still apply,
+> but Windows users skip the cable-only deploy path.
+
 ## 1. Unity Hub + Editor
 
 ```bash

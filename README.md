@@ -20,7 +20,12 @@ EI build/train jobs.
 ## Open the project
 
 See **[SETUP.md](SETUP.md)** for end-to-end macOS setup (Unity Hub install,
-Android build modules, Meta XR SDK, Quest 2 dev mode, build & run). TL;DR:
+Android build modules, Meta XR SDK, Quest 2 dev mode, build & run).
+
+If you're on Windows, see **[AIRLINK.md](AIRLINK.md)** for the Air Link /
+Quest Link workflow (in-editor Play streamed to the headset — Windows-only).
+
+TL;DR macOS:
 
 1. `brew install --cask unity-hub`
 2. Install **Unity 6 LTS** (`6000.0.x`) with Android Build Support
