@@ -111,14 +111,39 @@ Troubleshooting:
 | Empty device list | Try a different cable — many USB-C cables are charge-only |
 | Quest doesn't show prompt | Unplug/replug, or `Settings → System → Developer` in headset to verify dev mode is on |
 
-## 7. Build & run
+## 7. Build the scenes (one click)
+
+Skip the manual scene-assembly dance — there's an Editor script that builds
+all five scenes from scratch with components wired up:
+
+1. In Unity, **Tools → EI VR Explorer → Build All Scenes**.
+2. Confirm the dialog. The script generates:
+   - `Assets/Scenes/Setup.unity`
+   - `Assets/Scenes/Explorer.unity`
+   - `Assets/Scenes/LiveInference.unity`
+   - `Assets/Scenes/Collect.unity`
+   - `Assets/Scenes/ObjectDetection.unity`
+   - `Assets/Prefabs/Waveform.prefab`, `BoundingBox.prefab`
+   - `Assets/Materials/FeaturePoint.mat`
+3. All five scenes are added to **Build Settings** in the right order
+   (Setup at index 0).
+
+Things still to do manually after the auto-build:
+
+- Replace the placeholder **Main Camera** in each scene with **OVRCameraRig**
+  from Meta XR SDK (drag the prefab from `Packages/com.meta.xr.sdk.core/.../OVRCameraRig.prefab`).
+- In Explorer + ObjectDetection scenes, hook up an **XR Ray Interactor** on
+  the right controller — the existing `SamplePicker.rayOrigin` reference
+  points at the camera as a fallback so the scenes still load.
+- (Optional) drag the auto-imported glTF prefabs from `Assets/Models/glTF/`
+  into the `DemoSceneSpawner.propPrefabs` array in ObjectDetection.
+
+## 8. Build & run
 
 In Unity:
 
 1. **File → Build Settings → Android** → **Switch Platform** if not already.
-2. **Add Open Scenes** until the build list contains: `Setup`, `Explorer`,
-   `LiveInference`, `Collect` — in that order. Setup must be index 0.
-3. Click **Build and Run** with the Quest connected. Unity builds an APK,
+2. Click **Build and Run** with the Quest connected. Unity builds an APK,
    pushes it via adb, and auto-launches it inside the headset.
 
 Sideload a pre-built APK:
@@ -129,12 +154,12 @@ adb install -r build/EIVR.apk
 adb shell am start -n com.yennster.eivr/com.unity3d.player.UnityPlayerActivity
 ```
 
-## 8. First-run inside the headset
+## 9. First-run inside the headset
 
-1. Setup scene loads first. The Companion URL field defaults to
-   `https://your-companion.vercel.app` — change it (or hard-code in
-   [Assets/Scripts/PairingSetup.cs](Assets/Scripts/PairingSetup.cs))
-   to your real companion URL, e.g. `https://explorer.jennyspeelman.dev`.
+1. Setup scene loads first. The Companion URL field is pre-filled with
+   `https://explorer.jennyspeelman.dev` (change in
+   [Assets/Scripts/PairingSetup.cs](Assets/Scripts/PairingSetup.cs)
+   if you fork the companion).
 2. On https://explorer.jennyspeelman.dev, paste your EI API key, get a
    6-digit pairing code.
 3. Type the code in-headset, hit pair. Setup persists across restarts.
@@ -187,7 +212,16 @@ issues — change one line in `LiveInferenceRunner.LoadModel()`.
 The C# extractors are pragmatic reimplementations of EI's blocks — they
 follow the same recipe but aren't bit-exact. To get reasonable results on
 a model trained against EI's reference DSP, **match the inspector params
-to your impulse**:
+to your impulse**.
+
+> **Auto-config from `metadata.json`** — if you got the model via the
+> [Unity Sentis deployment block](https://github.com/yennster/ei-unity-sentis-block)
+> (Enterprise), the bundle's `metadata.json` carries the impulse's DSP
+> block parameters and class names. Call
+> `BundleMetadataLoader.Apply(bundle, runner)` at startup and the inspector
+> configs auto-populate — no manual copying. See
+> [Assets/Scripts/BundleMetadataLoader.cs](Assets/Scripts/BundleMetadataLoader.cs)
+> for the API.
 
 **Motion (Spectral Analysis):**
 

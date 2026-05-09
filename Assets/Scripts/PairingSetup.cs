@@ -16,7 +16,7 @@ namespace EI.VR
         [SerializeField] private TMPro.TMP_Text statusText;
         [SerializeField] private string nextScene = "Explorer";
 
-        private const string DefaultCompanion = "https://your-companion.vercel.app";
+        private const string DefaultCompanion = "https://explorer.jennyspeelman.dev";
 
         private void Start()
         {
