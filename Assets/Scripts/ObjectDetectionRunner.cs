@@ -1,5 +1,5 @@
 using System.IO;
-using Unity.Sentis;
+
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -31,8 +31,8 @@ namespace EI.VR
 
         private RenderTexture _rt;
         private Texture2D _readback;
-        private Model _model;
-        private Worker _worker;
+        private Unity.InferenceEngine.Model _model;
+        private Unity.InferenceEngine.Worker _worker;
         private float _accumMs;
 
         private void Start()
@@ -63,9 +63,9 @@ namespace EI.VR
             try
             {
                 using var stream = new FileStream(AppState.I.ModelPath, FileMode.Open, FileAccess.Read);
-                _model = ModelLoader.Load(stream);
+                _model = Unity.InferenceEngine.ModelLoader.Load(stream);
                 _worker?.Dispose();
-                _worker = new Worker(_model, BackendType.GPUCompute);
+                _worker = new Unity.InferenceEngine.Worker(_model, Unity.InferenceEngine.BackendType.GPUCompute);
                 Debug.Log($"[ObjDet] Sentis model loaded from {AppState.I.ModelPath}");
             }
             catch (System.Exception e)
@@ -118,12 +118,12 @@ namespace EI.VR
                 }
             }
             var shape = isNCHW
-                ? new TensorShape(1, 3, inputSize, inputSize)
-                : new TensorShape(1, inputSize, inputSize, 3);
-            using var input = new Tensor<float>(shape, data);
+                ? new Unity.InferenceEngine.TensorShape(1, 3, inputSize, inputSize)
+                : new Unity.InferenceEngine.TensorShape(1, inputSize, inputSize, 3);
+            using var input = new Unity.InferenceEngine.Tensor<float>(shape, data);
             _worker.Schedule(input);
 
-            using var output = (_worker.PeekOutput() as Tensor<float>).ReadbackAndClone();
+            using var output = (_worker.PeekOutput() as Unity.InferenceEngine.Tensor<float>).ReadbackAndClone();
             var raw = output.DownloadToArray();
 
             // FOMO output is (1, gridH, gridW, channels). Sentis returns the

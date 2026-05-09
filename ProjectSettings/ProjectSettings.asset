@@ -143,8 +143,8 @@ PlayerSettings:
   tvOSBundleVersion: 1.0
   bundleVersion: 1.0
   preloadedAssets:
-  - {fileID: -5751525475886986339, guid: aca12cea22ec34e3d87468452b2ae42e, type: 2}
   - {fileID: 11400000, guid: 60efd3c5d83464cd1af9570fa726fbd8, type: 2}
+  - {fileID: -5751525475886986339, guid: aca12cea22ec34e3d87468452b2ae42e, type: 2}
   - {fileID: -5967803616378566611, guid: 0274026e21dc9441499125afc01ee55d, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -165,7 +165,8 @@ PlayerSettings:
   resetResolutionOnWindowResize: 0
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
-  applicationIdentifier: {}
+  applicationIdentifier:
+    Android: com.DefaultCompany.unityapp
   buildNumber:
     Standalone: 0
     VisionOS: 0
@@ -418,7 +419,8 @@ PlayerSettings:
   enableCrashReportAPI: 0
   cameraUsageDescription: 
   locationUsageDescription: 
-  microphoneUsageDescription: 
+  microphoneUsageDescription: Captures IMU and audio samples for Edge Impulse training
+    and on-device inference.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 10.13.0
   switchNMETAOverride: 

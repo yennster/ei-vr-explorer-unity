@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
-using Unity.Sentis;
+
 using UnityEngine;
 using UnityEngine.XR;
 
@@ -57,8 +57,8 @@ namespace EI.VR
         [SerializeField] private string[] classNames = { "class_0", "class_1", "class_2" };
 
         // ---- shared inference state ----
-        private Model _model;
-        private Worker _worker;
+        private Unity.InferenceEngine.Model _model;
+        private Unity.InferenceEngine.Worker _worker;
         private string _currentClass = "loading…";
         private float _currentConfidence;
 
@@ -123,9 +123,9 @@ namespace EI.VR
             try
             {
                 using var stream = new FileStream(AppState.I.ModelPath, FileMode.Open, FileAccess.Read);
-                _model = ModelLoader.Load(stream);
+                _model = Unity.InferenceEngine.ModelLoader.Load(stream);
                 _worker?.Dispose();
-                _worker = new Worker(_model, BackendType.GPUCompute);
+                _worker = new Unity.InferenceEngine.Worker(_model, Unity.InferenceEngine.BackendType.GPUCompute);
                 _currentClass = "ready";
                 Debug.Log($"[Sentis] Model loaded ({modality}) from {AppState.I.ModelPath}");
             }
@@ -210,7 +210,7 @@ namespace EI.VR
             {
                 features = ordered; // Raw / Flatten path
             }
-            using var input = new Tensor<float>(new TensorShape(1, features.Length), features);
+            using var input = new Unity.InferenceEngine.Tensor<float>(new Unity.InferenceEngine.TensorShape(1, features.Length), features);
             Invoke(input);
         }
 
@@ -255,7 +255,7 @@ namespace EI.VR
             ReadLastWindow(_audioBuffer, writeHead, clipSamples);
 
             float[] features;
-            TensorShape shape;
+            Unity.InferenceEngine.TensorShape shape;
             if (extractor == FeatureExtractor.MFE)
             {
                 mfeConfig.sampleRateHz = audioRateHz;
@@ -264,21 +264,21 @@ namespace EI.VR
                 int frameStride = Mathf.Max(1, Mathf.RoundToInt(audioRateHz * mfeConfig.frameStrideSec));
                 int numFrames = _audioWindowSamples >= frameLen
                     ? 1 + (_audioWindowSamples - frameLen) / frameStride : 0;
-                shape = new TensorShape(1, numFrames, mfeConfig.numFilters, 1);
+                shape = new Unity.InferenceEngine.TensorShape(1, numFrames, mfeConfig.numFilters, 1);
             }
             else if (extractor == FeatureExtractor.MFCC)
             {
                 mfccConfig.sampleRateHz = audioRateHz;
                 features = MFCCExtractor.Extract(_audioBuffer, mfccConfig);
                 int numFrames = MFCCExtractor.FrameCount(_audioWindowSamples, mfccConfig);
-                shape = new TensorShape(1, numFrames, mfccConfig.numCepstral, 1);
+                shape = new Unity.InferenceEngine.TensorShape(1, numFrames, mfccConfig.numCepstral, 1);
             }
             else
             {
                 features = _audioBuffer;
-                shape = new TensorShape(1, _audioWindowSamples);
+                shape = new Unity.InferenceEngine.TensorShape(1, _audioWindowSamples);
             }
-            using var input = new Tensor<float>(shape, features);
+            using var input = new Unity.InferenceEngine.Tensor<float>(shape, features);
             Invoke(input);
         }
 
@@ -301,10 +301,10 @@ namespace EI.VR
 
         // ---- shared invoke ---------------------------------------------------
 
-        private void Invoke(Tensor<float> input)
+        private void Invoke(Unity.InferenceEngine.Tensor<float> input)
         {
             _worker.Schedule(input);
-            using var output = (_worker.PeekOutput() as Tensor<float>).ReadbackAndClone();
+            using var output = (_worker.PeekOutput() as Unity.InferenceEngine.Tensor<float>).ReadbackAndClone();
             var probs = output.DownloadToArray();
             int best = 0;
             float bestVal = float.NegativeInfinity;
