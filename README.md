@@ -20,17 +20,21 @@ EI build/train jobs.
 ## Open the project
 
 See **[SETUP.md](SETUP.md)** for end-to-end macOS setup (Unity Hub install,
-Android build modules, Meta XR SDK, Quest 2 dev mode, adb, build & run).
-TL;DR:
+Android build modules, Meta XR SDK, Quest 2 dev mode, build & run). TL;DR:
 
-1. `brew install --cask unity-hub android-platform-tools`
+1. `brew install --cask unity-hub`
 2. Install **Unity 6 LTS** (`6000.0.x`) with Android Build Support
-   (OpenJDK + SDK + NDK). Sentis 2.x requires Unity 6.
+   (OpenJDK + SDK + NDK). Sentis 2.x requires Unity 6. Unity bundles its
+   own `adb` — no separate platform-tools install needed.
 3. Open this directory in Unity Hub.
 4. Let Package Manager resolve `Packages/manifest.json` (`com.unity.sentis`,
    `com.meta.xr.sdk.core`, etc. — all auto-installed).
 5. Run **Edit → Project Settings → Meta XR** and click **Apply All** if the
    setup wizard flags anything.
+6. **Tools → EI VR Explorer → Build All Scenes** — generates all five
+   scenes wired up.
+7. Plug Quest in (data cable, dev mode on, USB debugging accepted) →
+   **File → Build And Run**.
 
 ## Related repos
 
@@ -68,12 +72,15 @@ Add all four to **Build Settings → Scenes In Build** in that order.
 
 ## Run on Quest 2
 
-```bash
-adb devices                     # confirm headset is connected
-adb install -r build/EIVR.apk   # after Build And Run, or sideload manually
-```
+Plug the Quest in via a USB-C **data** cable, accept the **Allow USB
+debugging** prompt inside the headset, then in Unity:
 
-Open the app, paste the 6-digit pairing code from the companion site, and
+- **File → Build Settings** → confirm the **Run Device** dropdown shows
+  your Quest (click Refresh if empty).
+- **File → Build And Run** (or Cmd+B). Unity builds the APK, pushes it
+  via its own bundled adb, and auto-launches the app inside the headset.
+
+Once running, paste the 6-digit pairing code from the companion site and
 you're in.
 
 ## Status / TODOs

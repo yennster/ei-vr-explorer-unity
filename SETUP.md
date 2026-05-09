@@ -30,18 +30,7 @@ In Unity Hub:
 > **Continue**; Unity rewrites `ProjectSettings/ProjectVersion.txt` to your
 > Unity 6 version automatically.
 
-## 2. Android platform-tools (`adb`)
-
-```bash
-brew install --cask android-platform-tools
-adb --version   # confirm on PATH
-```
-
-> Unity bundles its own `adb`, buried under
-> `~/Library/Application Support/Unity/Hub/Editor/<version>/PlaybackEngines/AndroidPlayer/SDK/platform-tools/`.
-> Installing it globally is much less annoying.
-
-## 3. Open the project
+## 2. Open the project
 
 ```bash
 cd /Users/jenny/Work/ei-vr-ar-app/unity-app
@@ -54,7 +43,7 @@ resolves `Packages/manifest.json` (Sentis, XRI, Input System, Newtonsoft, the
 Unity built-in modules), imports TextMesh Pro essentials, and compiles the
 C# scripts.
 
-## 4. Add Meta XR SDK Core
+## 3. Add Meta XR SDK Core
 
 Meta XR SDK isn't on Unity's package registry, so install it through the Asset
 Store:
@@ -71,7 +60,7 @@ Then:
 
 - **Edit → Project Settings → XR Plug-in Management → Android tab** → tick **Oculus**.
 
-## 5. Player Settings for Quest 2
+## 4. Player Settings for Quest 2
 
 **Edit → Project Settings → Player → Android tab**:
 
@@ -82,7 +71,7 @@ Then:
   - **Target API Level**: Automatic (or 32+)
 - **XR Plug-in Management → Oculus** → tick **Quest 2** in supported devices.
 
-## 6. Quest 2 dev mode + USB
+## 5. Quest 2 dev mode + USB
 
 On the headset:
 
@@ -92,26 +81,25 @@ On the headset:
    https://developers.meta.com/horizon/manage — free, takes a couple of
    minutes. The legacy URL https://developer.oculus.com/manage/ also works
    and redirects there.)
-2. Plug the Quest 2 into your Mac with a USB-C cable. Inside the headset,
-   accept the **Allow USB debugging** prompt and tick **Always allow from this computer**.
+2. Plug the Quest 2 into your Mac with a USB-C **data** cable. Inside the
+   headset, accept the **Allow USB debugging** prompt and tick **Always
+   allow from this computer**.
 
-On the Mac:
-
-```bash
-adb devices
-# List of devices attached
-# 1WMHHA00000000   device
-```
+To verify Unity sees the headset, open **File → Build Settings**. The
+**Run Device** dropdown lists every connected adb-visible device by name
+(e.g. `Oculus Quest 2 (1WMHHA…)`). Click **Refresh** if it's empty after
+plugging in. Unity uses its own bundled `adb` for everything in the
+build/run loop, so no separate platform-tools install is needed.
 
 Troubleshooting:
 
 | Symptom | Fix |
 |---|---|
-| `unauthorized` next to device | Accept prompt inside Quest, then `adb kill-server && adb start-server` |
-| Empty device list | Try a different cable — many USB-C cables are charge-only |
-| Quest doesn't show prompt | Unplug/replug, or `Settings → System → Developer` in headset to verify dev mode is on |
+| Run Device dropdown is empty | Many USB-C cables are charge-only — try a different cable. Then click Refresh. |
+| Quest doesn't show the "Allow USB debugging" prompt | Unplug/replug, or `Settings → System → Developer` in the headset to verify dev mode is on. |
+| Device shows up but build fails on push | Authorization was probably denied; in the headset, accept the prompt and try again. |
 
-## 7. Build the scenes (one click)
+## 6. Build the scenes (one click)
 
 Open the project in Unity 6, wait for the editor to finish compiling, then:
 
@@ -140,23 +128,20 @@ placeholder `Camera` instead of OVRCameraRig — install
 `com.meta.xr.sdk.core`, then re-run **Build All Scenes** to upgrade in
 place.
 
-## 8. Build & run
+## 7. Build & run
 
 In Unity:
 
 1. **File → Build Settings → Android** → **Switch Platform** if not already.
-2. Click **Build and Run** with the Quest connected. Unity builds an APK,
-   pushes it via adb, and auto-launches it inside the headset.
+2. Pick your Quest from the **Run Device** dropdown (click Refresh if empty).
+3. Click **Build And Run** (or Cmd+B) with the Quest connected. Unity
+   builds the APK, pushes it via its bundled adb, and auto-launches the
+   app inside the headset.
 
-Sideload a pre-built APK:
+For faster iteration once the project is set up, **File → Build Profiles
+→ Patch And Run** rebuilds only what changed.
 
-```bash
-adb install -r build/EIVR.apk
-# Auto-launch (replace with your Player → Identification → Package Name):
-adb shell am start -n com.yennster.eivr/com.unity3d.player.UnityPlayerActivity
-```
-
-## 9. First-run inside the headset
+## 8. First-run inside the headset
 
 1. Setup scene loads first. The Companion URL field is pre-filled with
    `https://explorer.jennyspeelman.dev` (change in
@@ -308,13 +293,13 @@ For audio impulses (keyword spotting, sound classification, etc.):
    SampleRecorder).
 2. **Android microphone permission** — Quest 2 needs `RECORD_AUDIO`. Unity
    adds it automatically once it sees a `Microphone` API call in compiled
-   scripts. Verify after a build:
-   ```bash
-   adb shell dumpsys package com.yennster.eivr | grep RECORD_AUDIO
-   # expect: android.permission.RECORD_AUDIO  granted=true
-   ```
-   On first launch the headset prompts for mic permission. If you accidentally
-   deny, re-grant from **Settings → Apps → \<your app\> → Permissions**.
+   scripts. On first launch the headset prompts for mic permission. If you
+   accidentally deny, re-grant from
+   **Settings → Apps → \<your app\> → Permissions** in the headset.
+
+   *(Optional: if you have a system `adb` installed and want to verify the
+   manifest grant, `adb shell dumpsys package com.yennster.eivr | grep RECORD_AUDIO`
+   should print `granted=true`.)*
 3. **Sample rate** — 16 kHz mono is EI's default for audio. Override via
    `audioRateHz` / `micRateHz` if your project uses something else.
 
@@ -411,5 +396,6 @@ EON Compiler:
   always EON Compiler off. Re-deploy from EI with EON on.
 - **`com.unity.sentis` fails to resolve** → make sure you opened the project
   in Unity 6 LTS, not 2022.3. Sentis 2.x requires Unity 6.
-- **APK installs but app crashes on launch** → check
-  `adb logcat -s Unity` for the actual stack trace.
+- **APK installs but app crashes on launch** → in Unity, **Window →
+  Analysis → Profiler** with the Quest connected, or for a stack trace,
+  use Unity's bundled adb (`<editor>/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb logcat -s Unity`).
