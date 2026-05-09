@@ -49,8 +49,14 @@ namespace EI.VR
             try
             {
                 var json = JObject.Parse(req.downloadHandler.text);
-                if (json["hasDeployment"]?.Value<bool>() != true) { onError("Build did not complete"); return; }
-                onArtifactUrl(json["url"]?.Value<string>());
+                if (json["hasDeployment"]?.Value<bool>() != true)
+                {
+                    onError("Build did not complete");
+                }
+                else
+                {
+                    onArtifactUrl(json["url"]?.Value<string>());
+                }
             }
             catch (Exception e) { onError(e.Message); }
         }
