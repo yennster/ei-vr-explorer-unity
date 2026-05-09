@@ -421,7 +421,7 @@ namespace EI.VR.EditorTools
 
         private static void EnsureAppState()
         {
-            if (Object.FindFirstObjectByType<AppState>() != null) return;
+            if (Object.FindAnyObjectByType<AppState>() != null) return;
             var go = new GameObject(AppStateName);
             go.AddComponent<AppState>();
         }
