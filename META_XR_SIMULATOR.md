@@ -67,20 +67,26 @@ Edit scripts/scenes
   ↓
 Hit Play in Unity
   ↓
-Meta XR Simulator window opens, scene runs in mock-Quest viewport
+Meta XR Simulator window mirrors what the Quest user would see
   ↓
-Use keyboard/mouse to look around + simulate controller buttons
+(macOS) interact via the simulator's own keymap — see below
   ↓
 Stop Play, edit, repeat
 ```
 
-Default keyboard/mouse mappings (visible in the simulator's HUD):
-
-- **Mouse**: head look
-- **WASD**: head translate
-- **Hold left mouse + drag**: simulate pointing with right controller
-- **Spacebar**: trigger button on the active controller
-- Buttons / thumbsticks: see the simulator's on-screen overlay
+> **Honest caveat — input on macOS is rough.** Meta XR Simulator on
+> Apple Silicon is in a rougher state than the Windows build, and its
+> input mapping isn't reliably documented. To find the actual controls:
+> click inside the simulator's viewport, then check the **Meta XR
+> Simulator** app's menu bar (top of screen) for a `Help` or
+> `Keybindings` / `Controls` entry. Whatever's listed there is
+> authoritative.
+>
+> If interactive head movement / controller simulation simply doesn't
+> work (you only get a fixed-pose viewport), don't fight it — fall back
+> to **wireless adb to a real Quest** for iteration. The simulator's
+> still useful as a "scene loads, model loads, no crashes" smoke test
+> even with no input, since you can verify the visual state at startup.
 
 ## Returning to the real headset
 
