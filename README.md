@@ -18,11 +18,16 @@ pairing handshake and as a thin proxy for the long-running EI build/train jobs.
 
 ## Open the project
 
-1. Install **Unity 2022.3 LTS** with Android Build Support (NDK + JDK).
-2. Open this directory in Unity Hub.
-3. Let Unity Package Manager resolve `Packages/manifest.json`.
-4. Add **Meta XR SDK Core** and **com.google.ai.edge.litert** (LiteRT for
-   Unity, used to run the TFLite export).
+See **[SETUP.md](SETUP.md)** for end-to-end macOS setup (Unity Hub install,
+Android build modules, Meta XR SDK, Quest 2 dev mode, adb, build & run).
+TL;DR:
+
+1. `brew install --cask unity-hub android-platform-tools`
+2. Install **Unity 2022.3 LTS** with Android Build Support (OpenJDK + SDK + NDK).
+3. Open this directory in Unity Hub.
+4. Let Package Manager resolve `Packages/manifest.json`
+   (`com.google.ai.edge.litert` is already listed).
+5. Add **Meta XR SDK Core** from the Asset Store.
 
 ## Build scenes
 
