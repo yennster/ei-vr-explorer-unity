@@ -1,2 +1,2 @@
 m_EditorVersion: 2022.3.62f1
-m_EditorVersionWithRevision: 2022.3.62f1 (placeholder — Unity will rewrite this on first open if your installed editor differs)
+m_EditorVersionWithRevision: 2022.3.62f1 (4af31df58517)

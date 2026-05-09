@@ -48,17 +48,26 @@ C# scripts.
 
 ## 4. Add Meta XR SDK Core
 
-The OpenUPM `com.google.ai.edge.litert` is already in `manifest.json` and will
-auto-install. Meta XR SDK isn't on UPM by default, so:
+Meta XR SDK isn't on Unity's package registry, so install it through the Asset
+Store:
 
-1. In Unity, **Window → Asset Store** → search "Meta XR Core SDK" → **Add to My Assets** (free).
-2. **Window → Package Manager → My Assets** → find Meta XR Core SDK → **Download**, then **Import**.
+1. In a browser (or in Unity → Window → Asset Store) open
+   https://assetstore.unity.com/packages/tools/integration/meta-xr-core-sdk-269169
+   → **Add to My Assets** (free).
+2. **Window → Package Manager → My Assets** → find **Meta XR Core SDK** →
+   **Download**, then **Import**.
 3. Accept the project setup tasks Meta proposes (linker XML, Android manifest, etc.).
    The wizard lives at **Edit → Project Settings → Meta XR**.
 
 Then:
 
 - **Edit → Project Settings → XR Plug-in Management → Android tab** → tick **Oculus**.
+
+> **LiteRT (TFLite for Unity)** is NOT yet wired into the project. The
+> Live Inference scene's TFLite calls are stubbed in
+> [Assets/Scripts/LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs).
+> When you're ready to enable on-device inference, install LiteRT for Unity
+> following Google's docs: https://ai.google.dev/edge/litert/inference
 
 ## 5. Player Settings for Quest 2
 
