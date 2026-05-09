@@ -318,30 +318,35 @@ and Audio — the object-detection runner is intentionally separate so the
 image preprocessing and box overlay code stay isolated from the IMU/audio
 sliding-window code.
 
-### Importing Apple Quick Look USDZ models as props
+### Importing free 3D models as props
 
-Apple's [AR Quick Look gallery](https://developer.apple.com/augmented-reality/quick-look/)
-provides several free .usdz models (Pancakes, Toy Drummer, Hummingbird,
-Chameleon, Toy Biplane, Stratocaster, Baseball Glove, Seahorse). Workflow:
+**Recommended: Khronos glTF Sample Models** — 8 free models (Duck, BoomBox,
+DamagedHelmet, Avocado, Lantern, WaterBottle, AntiqueCamera, Corset). All
+CC0 or CC-BY 4.0, no Blender step needed because `com.unity.cloud.gltfast`
+is in the package manifest and imports `.glb` files automatically.
 
 ```bash
 cd unity-app
-./tools/fetch_apple_usdz.sh
-# Drops 8 .usdz files into Assets/Models/USDZ/
+./tools/fetch_glb_demos.sh
+# Drops 8 .glb files into Assets/Models/glTF/
 ```
 
-Unity doesn't natively import .usdz — convert each one to .fbx or .glb first.
-Two reliable macOS paths:
+Unity will auto-generate a Prefab next to each `.glb` on import (give the
+Editor a few seconds to process them). Drag those Prefabs into the
+`propPrefabs` array on your `DemoSceneSpawner` component.
 
-- **Blender** (free):
-  1. `File → Import → Universal Scene Description (.usd)` → pick a `.usdz`.
-  2. `File → Export → glTF 2.0` → save into `Assets/Models/`.
-- **Pixar usdtools** + a glTF converter — slightly more involved; the
-  `fetch_apple_usdz.sh` output prints a Blender CLI one-liner you can paste.
+**Alternative: Apple Quick Look USDZ models** — there's also a fetcher for
+Apple's [AR Quick Look gallery](https://developer.apple.com/augmented-reality/quick-look/)
+in `./tools/fetch_apple_usdz.sh` (Toy Drummer, Hummingbird, Chameleon,
+etc.). Unity doesn't import `.usdz` natively, so each one needs a one-time
+conversion to `.glb` or `.fbx` in Blender:
 
-After conversion, drag the resulting prefab into the `propPrefabs` array on
-your `DemoSceneSpawner` component. The spawner will use them in place of the
-fallback primitives.
+1. `File → Import → Universal Scene Description (.usd)` → pick a `.usdz`.
+2. `File → Export → glTF 2.0` → save into `Assets/Models/glTF/`.
+
+The glTF path is faster and produces results identical to the USDZ→glb
+route, so I'd skip the USDZ fetcher unless you specifically want one of
+the Apple models.
 
 ### Edge Impulse FOMO export caveats
 
