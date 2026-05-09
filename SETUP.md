@@ -176,7 +176,7 @@ issues — change one line in `LiveInferenceRunner.LoadModel()`.
 | **Image classification** | ✓ clean | Same as FOMO |
 | **Motion + Spectral Analysis** | ✓ via C# DSP | [SpectralAnalysisExtractor.cs](Assets/Scripts/SpectralAnalysisExtractor.cs) reimplements EI's block |
 | **Audio + MFE** | ✓ via C# DSP | [MFEExtractor.cs](Assets/Scripts/MFEExtractor.cs) reimplements EI's block |
-| **Audio + MFCC** | partial | MFE is implemented; MFCC is MFE + DCT (TODO) |
+| **Audio + MFCC** | ✓ via C# DSP | [MFCCExtractor.cs](Assets/Scripts/MFCCExtractor.cs) wraps MFE + DCT-II |
 | **Anything with EON Compiler ON** | ✗ doesn't convert | Rebuild with EON off |
 
 ### DSP parameter matching (motion + audio)
@@ -220,6 +220,11 @@ In Studio → your impulse → **Audio (MFE)** block, copy:
 
 The Audio modality reshapes the result to `(1, numFrames, numFilters, 1)`
 to match EI's NN input layout.
+
+**Audio (MFCC):** same fields as MFE on `mfccConfig`, plus `numCepstral`
+(typically 13) — the number of cepstral coefficients to keep after the
+DCT. EI's MFCC block produces `(1, numFrames, numCepstral, 1)`. The
+extractor uses orthonormal DCT-II (matches scipy/librosa default).
 
 ### Sanity-check the feature length
 

@@ -30,7 +30,7 @@ namespace EI.VR
     /// </summary>
     public class LiveInferenceRunner : MonoBehaviour
     {
-        public enum FeatureExtractor { Raw, Spectral, MFE }
+        public enum FeatureExtractor { Raw, Spectral, MFE, MFCC }
 
         [Header("Output HUD")]
         [SerializeField] private TMPro.TMP_Text wristLabel;
@@ -51,6 +51,7 @@ namespace EI.VR
         [SerializeField] private int audioWindowMs = 1000;
         [SerializeField] private int audioStrideMs = 250;
         [SerializeField] private MFEConfig mfeConfig = new MFEConfig();
+        [SerializeField] private MFCCConfig mfccConfig = new MFCCConfig();
 
         [Header("Class names (in model output order)")]
         [SerializeField] private string[] classNames = { "class_0", "class_1", "class_2" };
@@ -263,8 +264,14 @@ namespace EI.VR
                 int frameStride = Mathf.Max(1, Mathf.RoundToInt(audioRateHz * mfeConfig.frameStrideSec));
                 int numFrames = _audioWindowSamples >= frameLen
                     ? 1 + (_audioWindowSamples - frameLen) / frameStride : 0;
-                // EI MFE tensor shape: (1, numFrames, numFilters, 1) — channels-last image.
                 shape = new TensorShape(1, numFrames, mfeConfig.numFilters, 1);
+            }
+            else if (extractor == FeatureExtractor.MFCC)
+            {
+                mfccConfig.sampleRateHz = audioRateHz;
+                features = MFCCExtractor.Extract(_audioBuffer, mfccConfig);
+                int numFrames = MFCCExtractor.FrameCount(_audioWindowSamples, mfccConfig);
+                shape = new TensorShape(1, numFrames, mfccConfig.numCepstral, 1);
             }
             else
             {
