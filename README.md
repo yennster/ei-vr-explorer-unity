@@ -45,6 +45,26 @@ TL;DR macOS:
 7. Plug Quest in (data cable, dev mode on, USB debugging accepted) →
    **File → Build And Run**.
 
+## CI
+
+[GitHub Actions](.github/workflows/ci.yml) runs Unity **EditMode tests**
+on every push/PR to `main` via [game-ci/unity-test-runner](https://game.ci).
+Tests live under [`Assets/Tests/EditMode/`](Assets/Tests/EditMode/) and
+cover the pure-math DSP code (FFT, MFCC, FOMO output parser) — anything
+that can be exercised without a runtime Unity scene.
+
+To get the workflow passing, add three repository secrets
+(Settings → Secrets and variables → Actions):
+
+| Secret | What it is |
+|---|---|
+| `UNITY_EMAIL` | Your Unity account email |
+| `UNITY_PASSWORD` | Your Unity account password |
+| `UNITY_LICENSE` | Contents of a `.ulf` license file. One-time generation: run [`game-ci/unity-request-activation-file`](https://game.ci/docs/github/activation), upload the resulting `.alf` to <https://license.unity3d.com/manual>, then paste the returned `.ulf` contents into this secret. |
+
+Locally, run **Window → General → Test Runner → Run All** in the Unity
+Editor — the same `EI.VR.Dsp.Tests` assembly is what CI executes.
+
 ## Related repos
 
 - **[ei-vr-explorer-web](https://github.com/yennster/ei-vr-explorer-web)** —
