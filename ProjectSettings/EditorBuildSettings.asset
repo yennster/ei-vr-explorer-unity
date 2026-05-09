@@ -4,7 +4,22 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Setup.unity
+    guid: 102f3d3370d5d4f6f87e1dcb82a09f76
+  - enabled: 1
+    path: Assets/Scenes/Explorer.unity
+    guid: 4540404a51b184bfaa1fed5d4d7b74fd
+  - enabled: 1
+    path: Assets/Scenes/LiveInference.unity
+    guid: 4fe0151b309494cb09e7a5b3f21fc537
+  - enabled: 1
+    path: Assets/Scenes/Collect.unity
+    guid: 5e457ff0ff03e41799c590131422b8d6
+  - enabled: 1
+    path: Assets/Scenes/ObjectDetection.unity
+    guid: 8eb48b548bccb4b01838475f7fc8b150
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: cc4b2be7ef4a74d17aeb3f946823e30e, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: aca12cea22ec34e3d87468452b2ae42e, type: 2}
