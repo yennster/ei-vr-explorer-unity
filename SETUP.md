@@ -7,6 +7,10 @@ Total time: ~30 minutes, mostly waiting on Unity downloads.
 > Link workflow (in-editor Play streamed to the headset — not available on
 > macOS). The Unity install + scene-building parts of this file still apply,
 > but Windows users skip the cable-only deploy path.
+>
+> **Want to iterate without a Quest?** See **[META_XR_SIMULATOR.md](META_XR_SIMULATOR.md)**
+> for running the editor's Play mode through Meta XR Simulator on macOS —
+> the closest equivalent to Windows-only Air Link.
 
 ## 1. Unity Hub + Editor
 

@@ -25,6 +25,10 @@ Android build modules, Meta XR SDK, Quest 2 dev mode, build & run).
 If you're on Windows, see **[AIRLINK.md](AIRLINK.md)** for the Air Link /
 Quest Link workflow (in-editor Play streamed to the headset — Windows-only).
 
+If you don't have a Quest handy and want to iterate in-editor on macOS,
+see **[META_XR_SIMULATOR.md](META_XR_SIMULATOR.md)** for the Meta XR
+Simulator workflow (mock-Quest desktop runtime).
+
 TL;DR macOS:
 
 1. `brew install --cask unity-hub`
