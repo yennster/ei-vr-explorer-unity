@@ -203,6 +203,80 @@ For audio impulses (keyword spotting, sound classification, etc.):
 3. **Sample rate** — 16 kHz mono is EI's default for audio. Override via
    `audioRateHz` / `micRateHz` if your project uses something else.
 
+## Object detection on Quest 2 (synthetic camera demo)
+
+Quest 2 doesn't expose its passthrough cameras to apps (Meta gates that to
+Quest 3 / 3S via the Camera Access API), so the object-detection mode is a
+**synthetic-scene demo** — every part is real Edge Impulse + Sentis ML, but
+the camera is a virtual Unity Camera instead of the real headset cameras.
+
+### Scene assembly (one-time, in the Unity Editor)
+
+Create a new scene `ObjectDetection.unity` with:
+
+1. A **Demo Camera** GameObject (just a `Camera`) pointed at a virtual
+   "tabletop" — a quad with some props on top.
+2. The `DemoSceneSpawner` component on a parent GameObject. Either:
+   - Leave `propPrefabs` empty → it'll spawn random colored Unity primitives
+     (cube/sphere/capsule/cylinder) so the demo runs out of the box, or
+   - Drag in your own prefabs (USDZ-derived — see below) for nicer visuals.
+3. A **world-space Canvas** placed in the user's view. Inside it:
+   - A `RawImage` covering the canvas. This shows the Demo Camera's feed.
+   - A child `RectTransform` (the "boxes layer") that exactly overlays the
+     RawImage rect. Add the `BoundingBoxOverlay` component, point its
+     `overlayRoot` at this rect, and assign a small `boxPrefab` (an empty
+     GameObject with an Image set to a transparent fill + thin colored
+     outline + a TMP\_Text child for the label).
+4. The `ObjectDetectionRunner` component on any GameObject. Wire:
+   - `sourceCamera` → the Demo Camera
+   - `feedDisplay` → the RawImage
+   - `overlay` → the BoundingBoxOverlay
+   - `inputSize` → match your impulse (FOMO defaults to **96**, sometimes 160)
+5. Add the new scene to **Build Settings → Scenes In Build**.
+
+The Live Inference scene's `LiveInferenceRunner` continues to handle Motion
+and Audio — the object-detection runner is intentionally separate so the
+image preprocessing and box overlay code stay isolated from the IMU/audio
+sliding-window code.
+
+### Importing Apple Quick Look USDZ models as props
+
+Apple's [AR Quick Look gallery](https://developer.apple.com/augmented-reality/quick-look/)
+provides several free .usdz models (Pancakes, Toy Drummer, Hummingbird,
+Chameleon, Toy Biplane, Stratocaster, Baseball Glove, Seahorse). Workflow:
+
+```bash
+cd unity-app
+./tools/fetch_apple_usdz.sh
+# Drops 8 .usdz files into Assets/Models/USDZ/
+```
+
+Unity doesn't natively import .usdz — convert each one to .fbx or .glb first.
+Two reliable macOS paths:
+
+- **Blender** (free):
+  1. `File → Import → Universal Scene Description (.usd)` → pick a `.usdz`.
+  2. `File → Export → glTF 2.0` → save into `Assets/Models/`.
+- **Pixar usdtools** + a glTF converter — slightly more involved; the
+  `fetch_apple_usdz.sh` output prints a Blender CLI one-liner you can paste.
+
+After conversion, drag the resulting prefab into the `propPrefabs` array on
+your `DemoSceneSpawner` component. The spawner will use them in place of the
+fallback primitives.
+
+### Edge Impulse FOMO export caveats
+
+The Image modality assumes the EI ONNX is a **FOMO** model exported with
+EON Compiler:
+
+- **Build with EON Compiler ON** (same Build button on the companion as the
+  motion/audio path).
+- FOMO outputs a per-cell heatmap shaped `(1, H, W, numClasses + 1)` (the
+  +1 channel is "background"). [FomoOutputParser.cs](Assets/Scripts/FomoOutputParser.cs)
+  thresholds + flood-fills to turn the heatmap into bounding boxes.
+- For non-FOMO architectures (YOLOv5 / YOLOv8 from EI), you'd need a
+  different output parser — not included here yet.
+
 ## Common first-time gotchas
 
 - **Meta XR setup wizard flagging issues** → click **Apply All** in the wizard.
