@@ -39,26 +39,34 @@ namespace EI.VR
         }
 
         // GET {base}/api/model-bundle/{projectId}
-        public IEnumerator FetchModelBundle(int projectId, Action<string> onArtifactUrl, Action<string> onError)
+        // Returns the ONNX model bytes directly (companion server-side fetches
+        // the EI TFLite deploy, extracts, converts via tflite2onnx, streams).
+        public IEnumerator FetchModelBundle(int projectId, Action<byte[]> onModelBytes, Action<string> onError)
         {
             using var req = UnityWebRequest.Get($"{_baseUrl}/api/model-bundle/{projectId}");
             req.SetRequestHeader("x-api-key", _apiKey);
-            req.timeout = 300; // EI build can take a few minutes
+            req.timeout = 300; // EI build + conversion can take a few minutes
             yield return req.SendWebRequest();
-            if (req.result != UnityWebRequest.Result.Success) { onError(req.error); yield break; }
-            try
+            if (req.result != UnityWebRequest.Result.Success)
             {
-                var json = JObject.Parse(req.downloadHandler.text);
-                if (json["hasDeployment"]?.Value<bool>() != true)
+                // The companion responds with JSON on error; surface its message.
+                var body = req.downloadHandler != null ? req.downloadHandler.text : null;
+                if (!string.IsNullOrEmpty(body))
                 {
-                    onError("Build did not complete");
+                    try
+                    {
+                        var json = JObject.Parse(body);
+                        var msg = json["error"]?.Value<string>();
+                        if (!string.IsNullOrEmpty(msg)) { onError(msg); yield break; }
+                    }
+                    catch { /* fall through */ }
                 }
-                else
-                {
-                    onArtifactUrl(json["url"]?.Value<string>());
-                }
+                onError($"HTTP {req.responseCode}: {req.error}");
+                yield break;
             }
-            catch (Exception e) { onError(e.Message); }
+            var bytes = req.downloadHandler.data;
+            if (bytes == null || bytes.Length < 16) { onError("Empty model response"); yield break; }
+            onModelBytes(bytes);
         }
 
         // POST {base}/api/ingest

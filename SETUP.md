@@ -136,26 +136,54 @@ adb shell am start -n com.yennster.eivr/com.unity3d.player.UnityPlayerActivity
    6-digit pairing code.
 3. Type the code in-headset, hit pair. Setup persists across restarts.
 
-## On-device inference: Unity Sentis + ONNX
+## On-device inference: TFLite → ONNX → Sentis
 
-The Live Inference scene runs ML on the headset using **Unity Sentis** —
-Unity's official ML inference engine — against an **ONNX** model auto-fetched
-from Edge Impulse. Flow:
+Edge Impulse doesn't expose ONNX as a deploy block for most projects, so the
+companion does **server-side TFLite → ONNX conversion** before the headset
+sees the model. Full pipeline:
 
-1. Companion (`/api/model-bundle/<projectId>`) calls `POST /deploy` on EI
-   Studio with `deployType: "onnx"` and polls the build job.
-2. Headset downloads the artifact to `persistentDataPath/model.onnx`.
-3. [LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs) loads it
+1. Companion **`/api/build-deployment/<projectId>`** (clicked from the page,
+   or auto-called) discovers a TFLite-bearing target — looks in priority
+   order for `arduino`, `android-cpp`, `wasm-browser-simd`, `wasm`, `zip` —
+   and triggers an EI build with `engine: tflite` (NOT `tflite-eon` —
+   EON output is a custom binary that isn't standard TFLite).
+2. Companion **`/api/model-bundle/<projectId>`** (called by the headset):
+   - Downloads the EI deploy zip via the Studio API.
+   - Unzips and parses `tflite-trained.{h,cpp}` — the TFLite model is
+     embedded as a C byte array. [tflite-extract.ts](../web-companion/src/lib/tflite-extract.ts)
+     pulls those bytes out.
+   - POSTs the raw TFLite bytes to **`/api/convert`** (a Python serverless
+     function on the same Vercel project) which runs `tflite2onnx`.
+   - Streams the resulting ONNX bytes back to the headset.
+3. Headset writes them to `persistentDataPath/model.onnx`.
+4. [LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs) loads it
    with `ModelLoader.Load(stream)`, creates a Sentis `Worker` on the
    GPUCompute backend, and runs inference every 250 ms over a sliding window.
-4. After the Collect & Retrain scene retrains the project, the new ONNX is
-   downloaded and the Live Inference scene hot-swaps to it via the
-   `AppState.ModelChanged` event — no scene reload required.
+5. After the Collect & Retrain scene retrains the project, the headset
+   re-fetches the model bundle (fresh conversion runs server-side again) and
+   the Live Inference scene hot-swaps to it via `AppState.ModelChanged`.
 
 The `com.unity.sentis` 2.1.3 package is in `Packages/manifest.json` and
 resolves automatically. Quest 2 supports the GPUCompute backend (Vulkan
 compute shaders); fall back to `BackendType.CPU` if you hit any device-specific
 issues — change one line in `LiveInferenceRunner.LoadModel()`.
+
+### What kind of EI projects this works for
+
+- **Object detection (FOMO)** — clean conversion, no DSP block. ✓
+- **Image classification** — clean conversion. ✓
+- **Motion classification with Spectral Analysis DSP** — TFLite is just
+  the NN, expects DSP features as input. The model loads but Sentis will
+  feed it raw IMU and produce garbage. Either replicate Spectral Analysis
+  in C# (chunk of work) or stick with the Motion modality on a project
+  whose impulse skips the DSP block.
+- **Audio with MFCC/MFE DSP** — same caveat as motion.
+- **Anything with EON Compiler turned on** — doesn't convert; rebuild
+  with EON off.
+
+For the immediate object-detection / USDZ demo this is exactly the right
+shape. Motion + audio modalities work but require an impulse without DSP
+preprocessing (e.g., raw NN-only) until we add the C#-side DSP step.
 
 ### Two modalities, one app
 

@@ -41,23 +41,13 @@ namespace EI.VR
                 if (finished && !ok) yield break;
             }
 
-            string artifactUrl = null;
+            byte[] modelBytes = null;
             yield return c.FetchModelBundle(AppState.I.ProjectId,
-                u => artifactUrl = u, err => Set("Build failed: " + err));
-            if (string.IsNullOrEmpty(artifactUrl)) yield break;
-
-            yield return DownloadAndInstall(artifactUrl);
-        }
-
-        private IEnumerator DownloadAndInstall(string url)
-        {
-            using var req = UnityEngine.Networking.UnityWebRequest.Get(url);
-            yield return req.SendWebRequest();
-            if (req.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
-            { Set("Download failed: " + req.error); yield break; }
+                b => modelBytes = b, err => Set("Model fetch failed: " + err));
+            if (modelBytes == null) yield break;
 
             var path = System.IO.Path.Combine(Application.persistentDataPath, "model.onnx");
-            System.IO.File.WriteAllBytes(path, req.downloadHandler.data);
+            System.IO.File.WriteAllBytes(path, modelBytes);
             AppState.I.SetModelPath(path);
             Set("New model installed — switch to Live Inference scene");
         }
