@@ -88,7 +88,10 @@ On the headset:
 
 1. **Meta Quest mobile app** on your phone → Devices → your headset →
    **Headset settings → Developer Mode → ON**.
-   (Requires registering as an organization at https://dashboard.meta.com — free, instant.)
+   (Requires registering as a verified developer organization at
+   https://developers.meta.com/horizon/manage — free, takes a couple of
+   minutes. The legacy URL https://developer.oculus.com/manage/ also works
+   and redirects there.)
 2. Plug the Quest 2 into your Mac with a USB-C cable. Inside the headset,
    accept the **Allow USB debugging** prompt and tick **Always allow from this computer**.
 
