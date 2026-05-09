@@ -170,20 +170,63 @@ issues — change one line in `LiveInferenceRunner.LoadModel()`.
 
 ### What kind of EI projects this works for
 
-- **Object detection (FOMO)** — clean conversion, no DSP block. ✓
-- **Image classification** — clean conversion. ✓
-- **Motion classification with Spectral Analysis DSP** — TFLite is just
-  the NN, expects DSP features as input. The model loads but Sentis will
-  feed it raw IMU and produce garbage. Either replicate Spectral Analysis
-  in C# (chunk of work) or stick with the Motion modality on a project
-  whose impulse skips the DSP block.
-- **Audio with MFCC/MFE DSP** — same caveat as motion.
-- **Anything with EON Compiler turned on** — doesn't convert; rebuild
-  with EON off.
+| Impulse | Status | DSP handling |
+|---|---|---|
+| **Object detection (FOMO)** | ✓ clean | No DSP — RT readback feeds the model directly |
+| **Image classification** | ✓ clean | Same as FOMO |
+| **Motion + Spectral Analysis** | ✓ via C# DSP | [SpectralAnalysisExtractor.cs](Assets/Scripts/SpectralAnalysisExtractor.cs) reimplements EI's block |
+| **Audio + MFE** | ✓ via C# DSP | [MFEExtractor.cs](Assets/Scripts/MFEExtractor.cs) reimplements EI's block |
+| **Audio + MFCC** | partial | MFE is implemented; MFCC is MFE + DCT (TODO) |
+| **Anything with EON Compiler ON** | ✗ doesn't convert | Rebuild with EON off |
 
-For the immediate object-detection / USDZ demo this is exactly the right
-shape. Motion + audio modalities work but require an impulse without DSP
-preprocessing (e.g., raw NN-only) until we add the C#-side DSP step.
+### DSP parameter matching (motion + audio)
+
+The C# extractors are pragmatic reimplementations of EI's blocks — they
+follow the same recipe but aren't bit-exact. To get reasonable results on
+a model trained against EI's reference DSP, **match the inspector params
+to your impulse**:
+
+**Motion (Spectral Analysis):**
+
+In Studio → your impulse → **Spectral Analysis** block, note these values
+and set the matching fields on `LiveInferenceRunner.spectralConfig`:
+
+| EI Studio field | Inspector field |
+|---|---|
+| Number of peaks | `peakCount` |
+| Filter cut-off (low) | `lowFrequencyHz` |
+| Filter cut-off (high) | `highFrequencyHz` (0 = Nyquist) |
+| Power edges | `powerEdges` (Hz, in ascending order) |
+| Window size / sample rate | `motionWindowMs`, `motionRateHz` (top-level fields) |
+
+The runner emits per-axis features in this order:
+`[RMS, skew, kurtosis, peak1_freq, peak1_mag, ..., peakN_mag, band1_power, band2_power, ...]`
+then concatenates all 6 axes. Total feature length is what your trained NN
+expects as input.
+
+**Audio (MFE):**
+
+In Studio → your impulse → **Audio (MFE)** block, copy:
+
+| EI Studio field | Inspector field (`mfeConfig`) |
+|---|---|
+| Frame length | `frameLengthSec` (e.g. 0.02) |
+| Frame stride | `frameStrideSec` (e.g. 0.01) |
+| Filter number | `numFilters` |
+| FFT length | `fftSize` |
+| Low frequency | `lowFrequencyHz` |
+| High frequency | `highFrequencyHz` (0 = Nyquist) |
+| Pre-emphasis coefficient | `preEmphasis` (default 0.97) |
+
+The Audio modality reshapes the result to `(1, numFrames, numFilters, 1)`
+to match EI's NN input layout.
+
+### Sanity-check the feature length
+
+If Sentis throws `Tensor shape mismatch on input 0` when the model runs,
+your `Spectral` / `MFE` config doesn't match what the impulse expected.
+The error message includes both shapes — work backwards from there to
+adjust `peakCount`, `powerEdges`, `numFilters`, etc.
 
 ### Two modalities, one app
 

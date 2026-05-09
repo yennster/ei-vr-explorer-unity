@@ -18,31 +18,39 @@ namespace EI.VR
     /// Unity Sentis. Drives the wrist HUD with the current predicted class
     /// label and confidence.
     ///
-    /// Modality is set in the inspector (default: Motion). For Audio, raw
-    /// 16 kHz mono samples are fed straight to the model — works when the EI
-    /// export was built with EON Compiler so the DSP step (MFCC/MFE) lives
-    /// inside the ONNX. Without EON Compiler the input shape will not match.
+    /// Models converted from Edge Impulse via the TFLite-only path expect
+    /// DSP-derived features as input (since EI's DSP block runs separately
+    /// from the TFLite). For each modality you can pick a feature extractor:
+    ///   • Raw       — feed raw samples (only correct if the impulse uses
+    ///                 a Raw / Flatten DSP block)
+    ///   • Spectral  — Edge Impulse Spectral Analysis (motion default)
+    ///   • MFE       — Edge Impulse Audio MFE (audio default)
     ///
     /// Hot-swaps the model when AppState.ModelChanged fires (after retraining).
     /// </summary>
     public class LiveInferenceRunner : MonoBehaviour
     {
+        public enum FeatureExtractor { Raw, Spectral, MFE }
+
         [Header("Output HUD")]
         [SerializeField] private TMPro.TMP_Text wristLabel;
         [SerializeField] private UnityEngine.UI.Image confidenceBar;
 
         [Header("Modality")]
         [SerializeField] private InputModality modality = InputModality.Motion;
+        [SerializeField] private FeatureExtractor extractor = FeatureExtractor.Spectral;
 
         [Header("Motion settings")]
         [SerializeField] private int motionRateHz = 62;
         [SerializeField] private int motionWindowMs = 2000;
         [SerializeField] private int motionStrideMs = 250;
+        [SerializeField] private SpectralAnalysisConfig spectralConfig = new SpectralAnalysisConfig();
 
         [Header("Audio settings")]
         [SerializeField] private int audioRateHz = 16000;
         [SerializeField] private int audioWindowMs = 1000;
         [SerializeField] private int audioStrideMs = 250;
+        [SerializeField] private MFEConfig mfeConfig = new MFEConfig();
 
         [Header("Class names (in model output order)")]
         [SerializeField] private string[] classNames = { "class_0", "class_1", "class_2" };
@@ -190,7 +198,18 @@ namespace EI.VR
                 System.Array.Copy(_motionRing, sampleIdx * MotionAxes, ordered, writeIdx, MotionAxes);
                 writeIdx += MotionAxes;
             }
-            using var input = new Tensor<float>(new TensorShape(1, total), ordered);
+
+            float[] features;
+            if (extractor == FeatureExtractor.Spectral)
+            {
+                spectralConfig.sampleRateHz = motionRateHz;
+                features = SpectralAnalysisExtractor.ExtractMultiAxis(ordered, MotionAxes, spectralConfig);
+            }
+            else
+            {
+                features = ordered; // Raw / Flatten path
+            }
+            using var input = new Tensor<float>(new TensorShape(1, features.Length), features);
             Invoke(input);
         }
 
@@ -233,7 +252,26 @@ namespace EI.VR
 
             // Read the most recent window.
             ReadLastWindow(_audioBuffer, writeHead, clipSamples);
-            using var input = new Tensor<float>(new TensorShape(1, _audioWindowSamples), _audioBuffer);
+
+            float[] features;
+            TensorShape shape;
+            if (extractor == FeatureExtractor.MFE)
+            {
+                mfeConfig.sampleRateHz = audioRateHz;
+                features = MFEExtractor.Extract(_audioBuffer, mfeConfig);
+                int frameLen = Mathf.Max(1, Mathf.RoundToInt(audioRateHz * mfeConfig.frameLengthSec));
+                int frameStride = Mathf.Max(1, Mathf.RoundToInt(audioRateHz * mfeConfig.frameStrideSec));
+                int numFrames = _audioWindowSamples >= frameLen
+                    ? 1 + (_audioWindowSamples - frameLen) / frameStride : 0;
+                // EI MFE tensor shape: (1, numFrames, numFilters, 1) — channels-last image.
+                shape = new TensorShape(1, numFrames, mfeConfig.numFilters, 1);
+            }
+            else
+            {
+                features = _audioBuffer;
+                shape = new TensorShape(1, _audioWindowSamples);
+            }
+            using var input = new Tensor<float>(shape, features);
             Invoke(input);
         }
 
