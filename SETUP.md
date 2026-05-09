@@ -49,8 +49,9 @@ open -a "Unity Hub"
 ```
 
 In Unity Hub: **Open → Add project from disk →** select this directory. Pick
-2022.3 LTS as the editor. First-time open takes a few minutes — Unity resolves
-`Packages/manifest.json`, imports TextMesh Pro essentials, and compiles the
+the **Unity 6 LTS** editor. First-time open takes a few minutes — Unity
+resolves `Packages/manifest.json` (Sentis, XRI, Input System, Newtonsoft, the
+Unity built-in modules), imports TextMesh Pro essentials, and compiles the
 C# scripts.
 
 ## 4. Add Meta XR SDK Core
@@ -69,57 +70,6 @@ Store:
 Then:
 
 - **Edit → Project Settings → XR Plug-in Management → Android tab** → tick **Oculus**.
-
-## Audio impulses: extra Quest setup
-
-If your Edge Impulse project is an audio model (keyword spotting, sound
-classification, etc.):
-
-1. **Set the modality** in the LiveInference scene's `LiveInferenceRunner`
-   component → **Modality** dropdown → **Audio**. Same dropdown exists on
-   `SampleRecorder` in the Collect scene (use **Microphone** under Sensor).
-2. **Android microphone permission** — Quest 2 needs `RECORD_AUDIO`. Unity
-   adds this automatically as soon as it sees a `Microphone` API call in
-   compiled scripts, but verify after a build:
-   ```bash
-   adb shell dumpsys package com.yennster.eivr | grep RECORD_AUDIO
-   # expect: android.permission.RECORD_AUDIO  granted=true
-   ```
-   On first launch the headset will prompt for mic permission. If you
-   accidentally deny, revoke + re-grant from
-   **Settings → Apps → \<your app\> → Permissions** in the Quest UI.
-3. **Sample rate** — defaults to **16 kHz mono**, EI's standard for audio
-   impulses. Override via the `audioRateHz` / `micRateHz` fields if your
-   project uses a different rate.
-
-## On-device inference: Unity Sentis + ONNX
-
-The Live Inference scene runs ML on the headset using **Unity Sentis** (the
-official ML inference engine bundled with Unity) against an **ONNX** model
-auto-fetched from Edge Impulse:
-
-1. Companion (`/api/model-bundle/<projectId>`) calls `POST /deploy` on EI
-   Studio with `deployType: "onnx"` and polls the build job.
-2. Headset downloads the artifact to `persistentDataPath/model.onnx`.
-3. [LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs) loads it
-   with `ModelLoader.Load(stream)`, creates a Sentis `Worker` on the
-   GPUCompute backend, and runs inference every 250 ms over a 2 s sliding IMU
-   window.
-4. After the Collect & Retrain scene retrains the project, the new ONNX is
-   downloaded and the Live Inference scene hot-swaps to it via the
-   `AppState.ModelChanged` event — no scene reload required.
-
-The `com.unity.sentis` package is in `Packages/manifest.json` and resolves
-automatically. Quest 2 supports the GPUCompute backend (Vulkan compute
-shaders); fall back to `BackendType.CPU` if you hit any device-specific
-issues — change one line in `LiveInferenceRunner.LoadModel()`.
-
-**Note on input shape**: the runner currently flattens the 6-axis IMU window
-to a `(1, windowSamples * 6)` tensor. If your impulse uses a DSP block
-(spectral analysis, etc.) before the NN, the model expects DSP features as
-input, not raw IMU. The simplest fix is to rebuild the EI deployment with
-**EON Compiler**, which bakes the DSP block into the exported model so it
-takes raw IMU samples directly.
 
 ## 5. Player Settings for Quest 2
 
@@ -186,13 +136,81 @@ adb shell am start -n com.yennster.eivr/com.unity3d.player.UnityPlayerActivity
    6-digit pairing code.
 3. Type the code in-headset, hit pair. Setup persists across restarts.
 
+## On-device inference: Unity Sentis + ONNX
+
+The Live Inference scene runs ML on the headset using **Unity Sentis** —
+Unity's official ML inference engine — against an **ONNX** model auto-fetched
+from Edge Impulse. Flow:
+
+1. Companion (`/api/model-bundle/<projectId>`) calls `POST /deploy` on EI
+   Studio with `deployType: "onnx"` and polls the build job.
+2. Headset downloads the artifact to `persistentDataPath/model.onnx`.
+3. [LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs) loads it
+   with `ModelLoader.Load(stream)`, creates a Sentis `Worker` on the
+   GPUCompute backend, and runs inference every 250 ms over a sliding window.
+4. After the Collect & Retrain scene retrains the project, the new ONNX is
+   downloaded and the Live Inference scene hot-swaps to it via the
+   `AppState.ModelChanged` event — no scene reload required.
+
+The `com.unity.sentis` 2.1.3 package is in `Packages/manifest.json` and
+resolves automatically. Quest 2 supports the GPUCompute backend (Vulkan
+compute shaders); fall back to `BackendType.CPU` if you hit any device-specific
+issues — change one line in `LiveInferenceRunner.LoadModel()`.
+
+### Two modalities, one app
+
+The runner has an `InputModality` enum exposed in the inspector:
+
+| Modality | Sampling | Window | Tensor shape fed to Sentis |
+|---|---|---|---|
+| **Motion** | Right-controller IMU @ 62 Hz, 6 axes (acc + gyr) | 2 s, 250 ms stride | `(1, windowSamples * 6)` |
+| **Audio** | Quest mic @ 16 kHz mono via `Microphone.Start` | 1 s, 250 ms stride | `(1, audioWindowSamples)` |
+
+Pick the right modality on the `LiveInferenceRunner` GameObject in the
+LiveInference scene before building. The Collect scene's `SampleRecorder`
+mirrors this — choose the matching `RecordingSensor`.
+
+### EON Compiler is essentially required
+
+Both modalities feed Sentis **raw samples**. If your impulse uses a DSP
+block (motion: spectral analysis; audio: MFCC/MFE/spectrogram), the exported
+ONNX expects DSP features, not raw samples — and Sentis will throw a shape
+mismatch on the first inference. Fix:
+
+1. In Edge Impulse Studio → **Deployment**.
+2. Toggle **EON Compiler: ON** before clicking Build.
+3. EON bakes the DSP step into the ONNX so it accepts raw IMU/audio
+   directly. Same model, different export.
+
+You only need to do this once per project — the companion's auto-build will
+keep using the EON-compiled output thereafter.
+
+### Audio: extra Quest setup
+
+For audio impulses (keyword spotting, sound classification, etc.):
+
+1. **Set modality to Audio** in the inspector (LiveInferenceRunner +
+   SampleRecorder).
+2. **Android microphone permission** — Quest 2 needs `RECORD_AUDIO`. Unity
+   adds it automatically once it sees a `Microphone` API call in compiled
+   scripts. Verify after a build:
+   ```bash
+   adb shell dumpsys package com.yennster.eivr | grep RECORD_AUDIO
+   # expect: android.permission.RECORD_AUDIO  granted=true
+   ```
+   On first launch the headset prompts for mic permission. If you accidentally
+   deny, re-grant from **Settings → Apps → \<your app\> → Permissions**.
+3. **Sample rate** — 16 kHz mono is EI's default for audio. Override via
+   `audioRateHz` / `micRateHz` if your project uses something else.
+
 ## Common first-time gotchas
 
 - **Meta XR setup wizard flagging issues** → click **Apply All** in the wizard.
 - **"BuildFailedException: Player Settings invalid"** → re-check
   Section 5; the most common miss is forgetting IL2CPP / ARM64.
-- **LiteRT package fails to resolve** → confirm the OpenUPM scoped registry
-  in `Packages/manifest.json` is intact (`package.openupm.com` →
-  `com.google.ai.edge.litert`).
+- **Sentis throws "input shape mismatch" on first inference** → almost
+  always EON Compiler off. Re-deploy from EI with EON on.
+- **`com.unity.sentis` fails to resolve** → make sure you opened the project
+  in Unity 6 LTS, not 2022.3. Sentis 2.x requires Unity 6.
 - **APK installs but app crashes on launch** → check
   `adb logcat -s Unity` for the actual stack trace.
