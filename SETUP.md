@@ -388,6 +388,22 @@ EON Compiler:
 
 ## Common first-time gotchas
 
+- **Build fails: "Could not create asset from .../ovr_icon_break_bb_connection.png:
+  File could not be read"** → Meta XR SDK ships a WebP file with a `.png`
+  extension. Run `./tools/fix_meta_xr_webp_icons.sh` from the `unity-app`
+  directory; it converts the WebP files in `Library/PackageCache/com.meta.xr.sdk.core*`
+  to real PNG in place. Re-run this any time you reset `Library/`.
+- **Build fails: "Microphone Usage Description is empty"** → handled
+  automatically by `Assets/Editor/ProjectSettingsBootstrapper.cs` on
+  Editor load. If you somehow still see it, set the field manually under
+  Edit → Project Settings → Player → search "microphone".
+- **TMP example scripts fail to compile (VertexZoom.cs / TMP_TextSelector_B.cs)**
+  → Unity 6 mesh API changed. We deleted the bundled
+  `Assets/TextMesh Pro/Examples & Extras/` folder; if it returns after a
+  TMP re-import, delete it again.
+
+
+
 - **Meta XR setup wizard flagging issues** → click **Apply All** in the wizard.
 - **"BuildFailedException: Player Settings invalid"** → re-check
   Section 5; the most common miss is forgetting IL2CPP / ARM64.
