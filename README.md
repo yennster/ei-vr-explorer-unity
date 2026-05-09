@@ -13,8 +13,9 @@ Quest 2 VR client for Edge Impulse. Three things, all from inside the headset:
    API, fire a retrain, watch the build progress, and the live inference
    scene auto-swaps to the new model.
 
-Pairs with the [web-companion](https://github.com/) Next.js app for the
-pairing handshake and as a thin proxy for the long-running EI build/train jobs.
+Pairs with the [web companion](https://github.com/yennster/ei-vr-explorer-web)
+Next.js app for the pairing handshake and as a thin proxy for the long-running
+EI build/train jobs.
 
 ## Open the project
 
@@ -23,11 +24,25 @@ Android build modules, Meta XR SDK, Quest 2 dev mode, adb, build & run).
 TL;DR:
 
 1. `brew install --cask unity-hub android-platform-tools`
-2. Install **Unity 2022.3 LTS** with Android Build Support (OpenJDK + SDK + NDK).
+2. Install **Unity 6 LTS** (`6000.0.x`) with Android Build Support
+   (OpenJDK + SDK + NDK). Sentis 2.x requires Unity 6.
 3. Open this directory in Unity Hub.
-4. Let Package Manager resolve `Packages/manifest.json`
-   (`com.google.ai.edge.litert` is already listed).
-5. Add **Meta XR SDK Core** from the Asset Store.
+4. Let Package Manager resolve `Packages/manifest.json` (`com.unity.sentis`,
+   `com.meta.xr.sdk.core`, etc. — all auto-installed).
+5. Run **Edit → Project Settings → Meta XR** and click **Apply All** if the
+   setup wizard flags anything.
+
+## Related repos
+
+- **[ei-vr-explorer-web](https://github.com/yennster/ei-vr-explorer-web)** —
+  Vercel companion: pairing UI, build trigger, server-side TFLite→ONNX
+  conversion (fallback path for non-Enterprise EI users).
+- **[ei-unity-sentis-block](https://github.com/yennster/ei-unity-sentis-block)** —
+  Edge Impulse custom deployment block. Enterprise orgs that install it get
+  a Unity Sentis-ready `deploy.zip` (ONNX + matching C# DSP scripts) directly
+  from the Studio Deployment page, skipping the companion's extract/convert
+  hops. The C# DSP files in `Assets/Scripts/{Fft,Spectral,MFE,MFCC}*.cs` are
+  the canonical source — the block bundles snapshots of them.
 
 ## Build scenes
 
