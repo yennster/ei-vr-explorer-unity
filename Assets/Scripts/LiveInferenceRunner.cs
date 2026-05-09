@@ -1,18 +1,17 @@
 using System.Collections.Generic;
 using System.IO;
+using Unity.Sentis;
 using UnityEngine;
 using UnityEngine.XR;
 
 namespace EI.VR
 {
     /// <summary>
-    /// Loads the TFLite model from AppState.ModelPath and runs it against a
-    /// sliding IMU window in real time. Drives the wrist HUD with the current
-    /// predicted class label and confidence.
+    /// Loads the ONNX model from AppState.ModelPath and runs it against a
+    /// sliding IMU window in real time using Unity Sentis. Drives the wrist
+    /// HUD with the current predicted class label and confidence.
     ///
-    /// IMPORTANT: This is a skeleton. The TFLite C# API surface depends on
-    /// the package version (`com.google.ai.edge.litert`). Wire the calls to
-    /// `Interpreter` from that package once installed in Unity.
+    /// Hot-swaps the model when AppState.ModelChanged fires (after retraining).
     /// </summary>
     public class LiveInferenceRunner : MonoBehaviour
     {
@@ -22,26 +21,29 @@ namespace EI.VR
         [SerializeField] private int windowMs = 2000;
         [SerializeField] private int strideMs = 250;
 
+        // Class names — populated from the impulse's learn-block. Until we
+        // wire that fetch, the indices come straight from the model output.
+        [SerializeField] private string[] classNames = { "class_0", "class_1", "class_2" };
+
         private float[] _ringBuffer;
         private int _ringHead;
         private int _windowSamples;
         private int _strideSamples;
         private int _sinceLastInfer;
         private float _accum;
+        private const int Axes = 6;
 
-        // Replace with your TFLite interpreter instance once the LiteRT
-        // package is added in Unity.
-        // private Interpreter _interpreter;
+        private Model _model;
+        private Worker _worker;
 
-        private string _currentClass;
+        private string _currentClass = "loading…";
         private float _currentConfidence;
-        private string[] _classNames = { "?" };
 
         private void Start()
         {
             _windowSamples = sampleRateHz * windowMs / 1000;
             _strideSamples = sampleRateHz * strideMs / 1000;
-            _ringBuffer = new float[_windowSamples * 6]; // 6 axes (acc+gyr)
+            _ringBuffer = new float[_windowSamples * Axes];
             if (AppState.I != null)
             {
                 AppState.I.ModelChanged += LoadModel;
@@ -52,15 +54,31 @@ namespace EI.VR
         private void OnDestroy()
         {
             if (AppState.I != null) AppState.I.ModelChanged -= LoadModel;
+            _worker?.Dispose();
+            _model = null;
         }
 
         private void LoadModel()
         {
-            if (string.IsNullOrEmpty(AppState.I?.ModelPath) || !File.Exists(AppState.I.ModelPath)) return;
-            // var modelBytes = File.ReadAllBytes(AppState.I.ModelPath);
-            // _interpreter?.Dispose();
-            // _interpreter = new Interpreter(modelBytes, new InterpreterOptions { threads = 2 });
-            Debug.Log("Model reloaded: " + AppState.I.ModelPath);
+            if (string.IsNullOrEmpty(AppState.I?.ModelPath) || !File.Exists(AppState.I.ModelPath))
+            {
+                _currentClass = "no model";
+                return;
+            }
+            try
+            {
+                using var stream = new FileStream(AppState.I.ModelPath, FileMode.Open, FileAccess.Read);
+                _model = ModelLoader.Load(stream);
+                _worker?.Dispose();
+                _worker = new Worker(_model, BackendType.GPUCompute);
+                _currentClass = "ready";
+                Debug.Log($"[Sentis] Model loaded from {AppState.I.ModelPath}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Sentis] LoadModel failed: {e}");
+                _currentClass = "load error";
+            }
         }
 
         private void Update()
@@ -72,7 +90,7 @@ namespace EI.VR
                 PushSample();
                 _accum -= dt;
                 _sinceLastInfer++;
-                if (_sinceLastInfer >= _strideSamples)
+                if (_sinceLastInfer >= _strideSamples && _worker != null)
                 {
                     _sinceLastInfer = 0;
                     RunInference();
@@ -91,31 +109,44 @@ namespace EI.VR
             var d = devices[0];
             d.TryGetFeatureValue(CommonUsages.deviceAcceleration, out var a);
             d.TryGetFeatureValue(CommonUsages.deviceAngularVelocity, out var w);
-            int idx = _ringHead * 6;
+            int idx = _ringHead * Axes;
             _ringBuffer[idx + 0] = a.x; _ringBuffer[idx + 1] = a.y; _ringBuffer[idx + 2] = a.z;
             _ringBuffer[idx + 3] = w.x; _ringBuffer[idx + 4] = w.y; _ringBuffer[idx + 5] = w.z;
             _ringHead = (_ringHead + 1) % _windowSamples;
         }
 
+        /// <summary>
+        /// Flatten the ring buffer in chronological order and feed it to the
+        /// model. Model expects shape (1, windowSamples * 6) for a typical EI
+        /// motion classifier; adjust if your impulse uses a different shape.
+        /// </summary>
         private void RunInference()
         {
-            // TODO: flatten ring buffer in chronological order, run DSP block
-            // (the EI WASM bundle exposes this; for TFLite-only export the
-            // model itself includes feature extraction if "EON Compiler" was
-            // used at build time), then invoke _interpreter.
-            //
-            // Placeholder: cycle through class names so the HUD has something
-            // to display before TFLite is wired up.
-            if (_classNames.Length > 1)
+            int total = _windowSamples * Axes;
+            var ordered = new float[total];
+            int writeIdx = 0;
+            // Read from oldest sample (= ringHead) forward
+            for (int i = 0; i < _windowSamples; i++)
             {
-                _currentClass = _classNames[(int)(Time.time) % _classNames.Length];
-                _currentConfidence = 0.5f + 0.5f * Mathf.PerlinNoise(Time.time, 0);
+                int sampleIdx = (_ringHead + i) % _windowSamples;
+                System.Array.Copy(_ringBuffer, sampleIdx * Axes, ordered, writeIdx, Axes);
+                writeIdx += Axes;
             }
-            else
+
+            using var input = new Tensor<float>(new TensorShape(1, total), ordered);
+            _worker.Schedule(input);
+
+            using var output = (_worker.PeekOutput() as Tensor<float>).ReadbackAndClone();
+            var probs = output.DownloadToArray();
+
+            int best = 0;
+            float bestVal = float.NegativeInfinity;
+            for (int i = 0; i < probs.Length; i++)
             {
-                _currentClass = "model not loaded";
-                _currentConfidence = 0f;
+                if (probs[i] > bestVal) { bestVal = probs[i]; best = i; }
             }
+            _currentClass = best < classNames.Length ? classNames[best] : $"class_{best}";
+            _currentConfidence = Mathf.Clamp01(bestVal);
         }
     }
 }

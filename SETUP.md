@@ -13,7 +13,9 @@ open -a "Unity Hub"
 In Unity Hub:
 
 1. **Sign in** (or create) a Unity ID. Personal license is free.
-2. **Installs → Install Editor → 2022.3 LTS** (latest patch, e.g. `2022.3.50f1`).
+2. **Installs → Install Editor → 6 LTS** (Unity 6 LTS, `6000.0.x` series).
+   This project uses **Unity Sentis 2.1.3** for on-device ONNX inference,
+   which requires Unity 6 (Sentis dropped 2022.3 LTS support in 1.4+).
 3. On the **Add modules** screen, tick:
    - **Android Build Support**
      - **OpenJDK** (sub-tick)
@@ -22,6 +24,11 @@ In Unity Hub:
 4. Click **Install**. ~5 GB download.
 
 > Apple Silicon: Unity Hub auto-picks the Apple-silicon (`-arm64`) editor build. No Rosetta needed.
+
+> If you previously opened the project in Unity 2022.3 LTS, the first time
+> you reopen it in Unity 6 you'll get a one-time upgrade prompt. Click
+> **Continue**; Unity rewrites `ProjectSettings/ProjectVersion.txt` to your
+> Unity 6 version automatically.
 
 ## 2. Android platform-tools (`adb`)
 
@@ -63,11 +70,34 @@ Then:
 
 - **Edit → Project Settings → XR Plug-in Management → Android tab** → tick **Oculus**.
 
-> **LiteRT (TFLite for Unity)** is NOT yet wired into the project. The
-> Live Inference scene's TFLite calls are stubbed in
-> [Assets/Scripts/LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs).
-> When you're ready to enable on-device inference, install LiteRT for Unity
-> following Google's docs: https://ai.google.dev/edge/litert/inference
+## On-device inference: Unity Sentis + ONNX
+
+The Live Inference scene runs ML on the headset using **Unity Sentis** (the
+official ML inference engine bundled with Unity) against an **ONNX** model
+auto-fetched from Edge Impulse:
+
+1. Companion (`/api/model-bundle/<projectId>`) calls `POST /deploy` on EI
+   Studio with `deployType: "onnx"` and polls the build job.
+2. Headset downloads the artifact to `persistentDataPath/model.onnx`.
+3. [LiveInferenceRunner.cs](Assets/Scripts/LiveInferenceRunner.cs) loads it
+   with `ModelLoader.Load(stream)`, creates a Sentis `Worker` on the
+   GPUCompute backend, and runs inference every 250 ms over a 2 s sliding IMU
+   window.
+4. After the Collect & Retrain scene retrains the project, the new ONNX is
+   downloaded and the Live Inference scene hot-swaps to it via the
+   `AppState.ModelChanged` event — no scene reload required.
+
+The `com.unity.sentis` package is in `Packages/manifest.json` and resolves
+automatically. Quest 2 supports the GPUCompute backend (Vulkan compute
+shaders); fall back to `BackendType.CPU` if you hit any device-specific
+issues — change one line in `LiveInferenceRunner.LoadModel()`.
+
+**Note on input shape**: the runner currently flattens the 6-axis IMU window
+to a `(1, windowSamples * 6)` tensor. If your impulse uses a DSP block
+(spectral analysis, etc.) before the NN, the model expects DSP features as
+input, not raw IMU. The simplest fix is to rebuild the EI deployment with
+**EON Compiler**, which bakes the DSP block into the exported model so it
+takes raw IMU samples directly.
 
 ## 5. Player Settings for Quest 2
 

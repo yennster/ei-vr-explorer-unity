@@ -56,7 +56,7 @@ namespace EI.VR
             if (req.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
             { Set("Download failed: " + req.error); yield break; }
 
-            var path = System.IO.Path.Combine(Application.persistentDataPath, "model.tflite");
+            var path = System.IO.Path.Combine(Application.persistentDataPath, "model.onnx");
             System.IO.File.WriteAllBytes(path, req.downloadHandler.data);
             AppState.I.SetModelPath(path);
             Set("New model installed — switch to Live Inference scene");
