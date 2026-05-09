@@ -1,6 +1,6 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.InputSystem;
 
 namespace EI.VR
 {
@@ -8,6 +8,10 @@ namespace EI.VR
     /// Casts a controller ray into the FeatureCloud; on trigger press finds the
     /// nearest point and fetches its source raw sample to render as a floating
     /// waveform next to the picked point.
+    ///
+    /// Uses the new Input System with a serialized InputAction so the binding
+    /// is reconfigurable from the inspector. Default binding fires on the
+    /// right XR controller's trigger.
     /// </summary>
     public class SamplePicker : MonoBehaviour
     {
@@ -16,8 +20,17 @@ namespace EI.VR
         [SerializeField] private GameObject waveformPrefab; // empty object with WaveformRenderer
         [SerializeField] private LayerMask cloudLayer = ~0;
 
+        [SerializeField]
+        private InputAction pickAction = new InputAction(
+            name: "PickPoint",
+            type: InputActionType.Button,
+            binding: "<XRController>{RightHand}/triggerPressed");
+
         private EdgeImpulseClient _ei;
         private GameObject _activeWaveform;
+
+        private void OnEnable() => pickAction.Enable();
+        private void OnDisable() => pickAction.Disable();
 
         private void Start()
         {
@@ -27,9 +40,8 @@ namespace EI.VR
 
         private void Update()
         {
-            // Trigger detection — wire to your controller input action in the
-            // Input System asset. Placeholder check here.
-            if (Input.GetButtonDown("Fire1") && _ei != null && rayOrigin != null && cloud != null)
+            if (pickAction.WasPressedThisFrame()
+                && _ei != null && rayOrigin != null && cloud != null)
             {
                 if (Physics.Raycast(rayOrigin.position, rayOrigin.forward, out var hit, 10f, cloudLayer))
                 {
