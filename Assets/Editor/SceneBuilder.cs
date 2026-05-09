@@ -43,15 +43,94 @@ namespace EI.VR.EditorTools
                 BuildObjectDetectionScene(),
             };
             ApplyToBuildSettings(paths);
+            var xrStatus = FindOVRCameraRigPrefab() != null
+                ? "OVRCameraRig auto-installed in every scene."
+                : "Meta XR SDK not found — scenes use a placeholder Camera. Install com.meta.xr.sdk.core, then re-run Build All Scenes to upgrade.";
             Debug.Log($"[SceneBuilder] Built {paths.Count} scenes; added to Build Settings.");
             EditorUtility.DisplayDialog(
                 "Scene Builder",
                 $"Built {paths.Count} scenes under {ScenesRoot}/ and added them to Build Settings.\n\n" +
-                "Next steps:\n" +
-                "• Replace the placeholder Camera in each scene with OVRCameraRig from Meta XR SDK.\n" +
-                "• Wire up XR Ray Interactor on the right controller in Explorer + ObjectDetection.\n" +
-                "• File → Build And Run to deploy to the Quest.",
+                xrStatus + "\n\n" +
+                "File → Build And Run to deploy to the Quest.",
                 "OK");
+        }
+
+        // ---- XR rig + glTF helpers ------------------------------------------
+
+        /// <summary>Find OVRCameraRig regardless of where Meta XR SDK puts it.</summary>
+        private static GameObject FindOVRCameraRigPrefab()
+        {
+            var guids = AssetDatabase.FindAssets("OVRCameraRig t:Prefab");
+            foreach (var g in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(g);
+                if (System.IO.Path.GetFileNameWithoutExtension(path) != "OVRCameraRig") continue;
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (go != null) return go;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Instantiate the project's OVRCameraRig (or create a fallback Camera
+        /// if Meta XR isn't installed yet) and return both the rig and a
+        /// suitable transform for ray-cast origin (right-hand anchor).
+        /// </summary>
+        private static (GameObject rig, Transform rayOrigin) CreateXRRig()
+        {
+            var prefab = FindOVRCameraRigPrefab();
+            if (prefab != null)
+            {
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                instance.name = "OVRCameraRig";
+                var rh = FindChildRecursive(instance.transform, "RightHandAnchor")
+                       ?? FindChildRecursive(instance.transform, "RightControllerAnchor")
+                       ?? instance.transform;
+                return (instance, rh);
+            }
+            // Fallback: plain Camera. Caller can re-run after installing Meta XR.
+            var cam = CreateCamera();
+            return (cam.gameObject, cam.transform);
+        }
+
+        private static Transform FindChildRecursive(Transform root, string name)
+        {
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var hit = FindChildRecursive(root.GetChild(i), name);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        /// <summary>Load all .glb assets under Assets/Models/glTF/ as
+        /// GameObjects suitable for instantiation.</summary>
+        private static GameObject[] LoadGltfPrefabs()
+        {
+            const string folder = "Assets/Models/glTF";
+            if (!AssetDatabase.IsValidFolder(folder)) return System.Array.Empty<GameObject>();
+            var results = new List<GameObject>();
+            var guids = AssetDatabase.FindAssets("t:GameObject", new[] { folder });
+            foreach (var g in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(g);
+                if (!path.EndsWith(".glb", System.StringComparison.OrdinalIgnoreCase)) continue;
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (go != null) results.Add(go);
+            }
+            return results.ToArray();
+        }
+
+        private static void SetObjectArrayField(SerializedObject so, string name, Object[] values)
+        {
+            var prop = so.FindProperty(name);
+            if (prop == null) return;
+            prop.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+            {
+                prop.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            }
         }
 
         // ---- Scene 1: Setup --------------------------------------------------
@@ -61,7 +140,7 @@ namespace EI.VR.EditorTools
             var scene = NewEmptyScene("Setup");
 
             EnsureAppState();
-            CreateCamera();
+            CreateXRRig();
             CreateLight();
 
             var canvas = CreateCanvas("Canvas", worldSpace: false);
@@ -111,8 +190,8 @@ namespace EI.VR.EditorTools
         {
             var scene = NewEmptyScene("Explorer");
             EnsureAppState();
-            var cam = CreateCamera();
-            cam.transform.position = new Vector3(0, 1.6f, -2.5f);
+            var (rig, rayOrigin) = CreateXRRig();
+            rig.transform.position = new Vector3(0, 0, -2.5f);
             CreateLight();
 
             // FeatureCloud GameObject.
@@ -146,7 +225,7 @@ namespace EI.VR.EditorTools
             var sp = spGo.AddComponent<SamplePicker>();
             var spSo = new SerializedObject(sp);
             spSo.FindProperty("cloud").objectReferenceValue = cloud;
-            spSo.FindProperty("rayOrigin").objectReferenceValue = cam.transform;
+            spSo.FindProperty("rayOrigin").objectReferenceValue = rayOrigin;
             spSo.FindProperty("waveformPrefab").objectReferenceValue = BuildWaveformPrefab();
             spSo.ApplyModifiedProperties();
 
@@ -159,7 +238,7 @@ namespace EI.VR.EditorTools
         {
             var scene = NewEmptyScene("LiveInference");
             EnsureAppState();
-            var cam = CreateCamera();
+            CreateXRRig();
             CreateLight();
 
             // Wrist HUD canvas.
@@ -188,7 +267,7 @@ namespace EI.VR.EditorTools
         {
             var scene = NewEmptyScene("Collect");
             EnsureAppState();
-            CreateCamera();
+            CreateXRRig();
             CreateLight();
 
             var canvas = CreateCanvas("Canvas", worldSpace: false);
@@ -257,8 +336,8 @@ namespace EI.VR.EditorTools
         {
             var scene = NewEmptyScene("ObjectDetection");
             EnsureAppState();
-            var userCam = CreateCamera();
-            userCam.transform.position = new Vector3(0, 1.6f, -1f);
+            var (rig, _) = CreateXRRig();
+            rig.transform.position = new Vector3(0, 0, -1f);
             CreateLight();
 
             // The "demo scene" — table + spawner.
@@ -272,7 +351,14 @@ namespace EI.VR.EditorTools
             var spawner = spawnerGo.AddComponent<DemoSceneSpawner>();
             var spawnSo = new SerializedObject(spawner);
             spawnSo.FindProperty("spawnRoot").objectReferenceValue = spawnerGo.transform;
+            // Auto-populate propPrefabs from Assets/Models/glTF/*.glb. If empty
+            // (user didn't run tools/fetch_glb_demos.sh yet) the spawner falls
+            // back to spawning random colored primitives so the scene still works.
+            var gltfPrefabs = LoadGltfPrefabs();
+            SetObjectArrayField(spawnSo, "propPrefabs", gltfPrefabs);
             spawnSo.ApplyModifiedProperties();
+            if (gltfPrefabs.Length > 0)
+                Debug.Log($"[SceneBuilder] Wired {gltfPrefabs.Length} glTF prop prefabs into DemoSceneSpawner.");
 
             // Demo Camera that the model sees (separate from the user camera).
             var demoCamGo = new GameObject("DemoCamera");

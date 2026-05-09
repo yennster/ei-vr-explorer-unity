@@ -113,30 +113,32 @@ Troubleshooting:
 
 ## 7. Build the scenes (one click)
 
-Skip the manual scene-assembly dance — there's an Editor script that builds
-all five scenes from scratch with components wired up:
+Open the project in Unity 6, wait for the editor to finish compiling, then:
 
-1. In Unity, **Tools → EI VR Explorer → Build All Scenes**.
-2. Confirm the dialog. The script generates:
-   - `Assets/Scenes/Setup.unity`
-   - `Assets/Scenes/Explorer.unity`
-   - `Assets/Scenes/LiveInference.unity`
-   - `Assets/Scenes/Collect.unity`
-   - `Assets/Scenes/ObjectDetection.unity`
-   - `Assets/Prefabs/Waveform.prefab`, `BoundingBox.prefab`
-   - `Assets/Materials/FeaturePoint.mat`
-3. All five scenes are added to **Build Settings** in the right order
-   (Setup at index 0).
+1. **Tools → EI VR Explorer → Build All Scenes**.
+2. Confirm the dialog.
 
-Things still to do manually after the auto-build:
+The script generates:
 
-- Replace the placeholder **Main Camera** in each scene with **OVRCameraRig**
-  from Meta XR SDK (drag the prefab from `Packages/com.meta.xr.sdk.core/.../OVRCameraRig.prefab`).
-- In Explorer + ObjectDetection scenes, hook up an **XR Ray Interactor** on
-  the right controller — the existing `SamplePicker.rayOrigin` reference
-  points at the camera as a fallback so the scenes still load.
-- (Optional) drag the auto-imported glTF prefabs from `Assets/Models/glTF/`
-  into the `DemoSceneSpawner.propPrefabs` array in ObjectDetection.
+- `Assets/Scenes/{Setup,Explorer,LiveInference,Collect,ObjectDetection}.unity`
+- `Assets/Prefabs/{Waveform,BoundingBox}.prefab`
+- `Assets/Materials/FeaturePoint.mat`
+
+It also:
+- Drops the **OVRCameraRig** prefab from Meta XR SDK into every scene
+  (resolved via `AssetDatabase.FindAssets("OVRCameraRig t:Prefab")`, so it
+  works regardless of where Meta puts the package internally).
+- Wires `SamplePicker.rayOrigin` in the Explorer scene to the rig's
+  **RightHandAnchor** for controller-based pointing.
+- Auto-populates **`DemoSceneSpawner.propPrefabs`** in ObjectDetection
+  with the glTF prefabs from `Assets/Models/glTF/`.
+- Adds all five scenes to **Build Settings** in the right order
+  (Setup at index 0).
+
+If Meta XR SDK isn't installed yet, the script logs a warning and uses a
+placeholder `Camera` instead of OVRCameraRig — install
+`com.meta.xr.sdk.core`, then re-run **Build All Scenes** to upgrade in
+place.
 
 ## 8. Build & run
 
@@ -352,35 +354,24 @@ and Audio — the object-detection runner is intentionally separate so the
 image preprocessing and box overlay code stay isolated from the IMU/audio
 sliding-window code.
 
-### Importing free 3D models as props
+### 3D models for the object-detection demo
 
-**Recommended: Khronos glTF Sample Models** — 8 free models (Duck, BoomBox,
-DamagedHelmet, Avocado, Lantern, WaterBottle, AntiqueCamera, Corset). All
-CC0 or CC-BY 4.0, no Blender step needed because `com.unity.cloud.gltfast`
-is in the package manifest and imports `.glb` files automatically.
+8 free Khronos glTF sample models (Duck, BoomBox, DamagedHelmet, Avocado,
+Lantern, WaterBottle, AntiqueCamera, Corset) ship in `Assets/Models/glTF/`.
+All CC0 or CC-BY 4.0; `com.unity.cloud.gltfast` imports them automatically.
+
+If they're missing (e.g. fresh clone with the .glb files gitignored), pull
+them with:
 
 ```bash
 cd unity-app
 ./tools/fetch_glb_demos.sh
-# Drops 8 .glb files into Assets/Models/glTF/
 ```
 
-Unity will auto-generate a Prefab next to each `.glb` on import (give the
-Editor a few seconds to process them). Drag those Prefabs into the
-`propPrefabs` array on your `DemoSceneSpawner` component.
-
-**Alternative: Apple Quick Look USDZ models** — there's also a fetcher for
-Apple's [AR Quick Look gallery](https://developer.apple.com/augmented-reality/quick-look/)
-in `./tools/fetch_apple_usdz.sh` (Toy Drummer, Hummingbird, Chameleon,
-etc.). Unity doesn't import `.usdz` natively, so each one needs a one-time
-conversion to `.glb` or `.fbx` in Blender:
-
-1. `File → Import → Universal Scene Description (.usd)` → pick a `.usdz`.
-2. `File → Export → glTF 2.0` → save into `Assets/Models/glTF/`.
-
-The glTF path is faster and produces results identical to the USDZ→glb
-route, so I'd skip the USDZ fetcher unless you specifically want one of
-the Apple models.
+The `Build All Scenes` menu picks them up automatically and wires them
+into `DemoSceneSpawner.propPrefabs`. If the array ends up empty, the
+spawner falls back to spawning random colored primitives so the scene
+still works.
 
 ### Edge Impulse FOMO export caveats
 
