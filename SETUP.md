@@ -70,6 +70,28 @@ Then:
 
 - **Edit → Project Settings → XR Plug-in Management → Android tab** → tick **Oculus**.
 
+## Audio impulses: extra Quest setup
+
+If your Edge Impulse project is an audio model (keyword spotting, sound
+classification, etc.):
+
+1. **Set the modality** in the LiveInference scene's `LiveInferenceRunner`
+   component → **Modality** dropdown → **Audio**. Same dropdown exists on
+   `SampleRecorder` in the Collect scene (use **Microphone** under Sensor).
+2. **Android microphone permission** — Quest 2 needs `RECORD_AUDIO`. Unity
+   adds this automatically as soon as it sees a `Microphone` API call in
+   compiled scripts, but verify after a build:
+   ```bash
+   adb shell dumpsys package com.yennster.eivr | grep RECORD_AUDIO
+   # expect: android.permission.RECORD_AUDIO  granted=true
+   ```
+   On first launch the headset will prompt for mic permission. If you
+   accidentally deny, revoke + re-grant from
+   **Settings → Apps → \<your app\> → Permissions** in the Quest UI.
+3. **Sample rate** — defaults to **16 kHz mono**, EI's standard for audio
+   impulses. Override via the `audioRateHz` / `micRateHz` fields if your
+   project uses a different rate.
+
 ## On-device inference: Unity Sentis + ONNX
 
 The Live Inference scene runs ML on the headset using **Unity Sentis** (the
